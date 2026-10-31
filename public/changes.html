@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel=stylesheet type="text/css" href="/house.css" title="House">
+<script>
+
+const DepthMax = 256
+var Depth = DepthMax;
+var relayLastTimestamp = 0;
+var relayTrigger = 'none'; // 'none', 'armed', 'run' or 'end'.
+var relayRefreshCountDown = 0;
+
+var relayLastHistory = new Array();
+var relayLastState = new Array();
+
+function relayShowInput (points) {
+
+    var table = document.getElementById ('pointlist');
+    for (var i = table.rows.length - 1; i > 0; i--) {
+        table.deleteRow(i);
+    }
+
+    var present = new Array();
+    for (const [key, value] of Object.entries(points).sort()) {
+
+        if (value.mode !== "input") continue;
+        var row = table.insertRow();
+
+        var column = document.createElement("td");
+        column.innerHTML = key;
+        row.appendChild(column);
+
+        var column = document.createElement("td");
+        column.id = 'graph-'+key;
+        row.appendChild(column);
+
+        present[key] = true;
+        if (!relayLastHistory[key]) { // New point.
+           relayLastHistory[key] = new Array();
+        }
+        if (!relayLastTimestamp) {
+           // Set the initial value.
+           if (value.state === 'off') relayLastState[key] = 0;
+           else relayLastState[key] = 1;
+        }
+    }
+    // Purge input points that have disappeared.
+    for (const [key, value] of Object.entries(relayLastHistory)) {
+        if (!present[key]) delete relayLastHistory[key];
+    }
+}
+
+function relayUpdate (response) {
+    if (response.control.status) {
+        // Update the last known states, if a change was lost or not processed.
+        for (const [key, value] of Object.entries(response.control.status)) {
+           if (value.mode !== "input") continue;
+           if (value.state === 'off') relayLastState[key] = 0;
+           else relayLastState[key] = 1;
+        }
+    }
+}
+
+function relayShowChanges (response) {
+
+    if (relayTrigger === 'end') {
+        // Do not show any update anymore, but keep a tab on the data.
+        relayUpdate (response);
+        if (response.control.history) {
+            relayLastTimestamp =
+                response.control.history.start + response.control.history.end;
+        }
+        return;
+    }
+
+    if (response.control.status) {
+        var title = response.host+' - Changes';
+        document.getElementsByTagName ('title')[0].innerHTML = title;
+        relayShowInput (response.control.status);
+    }
+
+    if (!response.control.history) return;
+
+    if (relayTrigger === 'none') {
+        if (response.control.history.depth) {
+            Depth = response.control.history.depth;
+            if (Depth > DepthMax) Depth = DepthMax;
+        }
+    }
+
+    var step = response.control.history.step;
+    var updlen = Math.floor (response.control.history.end / step);
+
+    relayLastTimestamp =
+        response.control.history.start + response.control.history.end;
+
+    var cursor = 0;
+    var changes = response.control.history.data;
+    if (!changes) changes = Array(0);
+    var names = response.control.history.names;
+
+    if (relayTrigger === 'armed') {
+        if (changes.length <= 0) return;
+        relayTriggerSet ('run');
+        // Align the display on the first detected change.
+        var change = changes[0];
+        var delta = Math.floor (change[0] / step) - 1;
+        if (delta > 1) {
+            updlen -= delta;
+            change[0] = step;
+        }
+    }
+
+    // Update the local history of the input points.
+    var endreached = false;
+    for (var i = 0; i < changes.length; ++i) {
+        var history;
+        var change = changes[i];
+        var delta = Math.floor (change[0] / step);
+        var index = change[1];
+        var changekey = names[index];
+
+        // This might be a second change simultanous to a previous one.
+        if (delta <= 0) {
+            if (relayLastHistory[changekey]) {
+               var history = relayLastHistory[changekey];
+               history[history.length-1] = change[2];
+               relayLastHistory[changekey] = history;
+            }
+            relayLastState[changekey] = change[2];
+            continue;
+        }
+
+        // No change occurred during that delta time, except for
+        // the specified point.
+        cursor += delta;
+        for (var j = 0; j < names.length; ++j) {
+            var key = names[j];
+
+            // Build the sequence of states until that change.
+            var update;
+            if (j == index) {
+               update = Array(delta-1).fill(relayLastState[key]);
+               update.push (change[2]);
+            } else {
+               update = Array(delta).fill(relayLastState[key]);
+            }
+
+            // Append this update to the point's history.
+            if (relayLastHistory[key] && (relayLastHistory[key].length > 0)) {
+               history = relayLastHistory[key].concat (update);
+            } else {
+               history = update;
+            }
+            if (history.length > Depth) {
+               if (relayTrigger === 'run') {
+                  history = history.slice (0, Depth);
+                  endreached = true;
+               } else {
+                  history = history.slice (history.length-Depth);
+               }
+            }
+            relayLastHistory[key] = history;
+        }
+        relayLastState[changekey] = change[2];
+    }
+
+    // Fill the remaining time between the last change and the end of
+    // the covered period.
+    var postamble = Math.floor(updlen - cursor);
+    if (postamble > Depth) postamble = Depth;
+    if (postamble > 0) {
+        for (var j = 0; j < names.length; ++j) {
+            var key = names[j];
+            var update = Array(postamble).fill(relayLastState[key]);
+            history = relayLastHistory[key].concat (update);
+            if (history.length > Depth) {
+               if (relayTrigger === 'run') {
+                  history = history.slice (0, Depth);
+                  endreached = true;
+               } else {
+                  history = history.slice (history.length-Depth);
+               }
+            }
+            relayLastHistory[key] = history;
+        }
+    }
+
+    if (endreached) {
+        relayTriggerSet ('end');
+    }
+
+    // Show the new, updated history.
+    //
+    for (const [key, value] of Object.entries(relayLastHistory)) {
+        var graph = document.getElementById ('graph-'+key);
+        // TBD: SVG graph instead of semi-graphic?
+        graph.innerHTML = value.join("").replace(/0/g, ".").replace(/1/g, "&#x00B7");
+    }
+
+    relayUpdate (response)
+}
+
+function relayUrl () {
+    var url = "/picod/history";
+    if (relayLastTimestamp) {
+       url += "?since=" + relayLastTimestamp;
+       if (relayRefreshCountDown <= 0) {
+          url += "&sync=1";
+          relayRefreshCountDown = 60;
+       } else {
+          relayRefreshCountDown -= 1;
+       }
+    } else {
+       url += "?sync=1";
+       relayRefreshCountDown = 60;
+    }
+    url += '&period=' +  document.getElementById ('period').valueAsNumber;
+    return url;
+}
+
+function relayChanges () {
+    var command = new XMLHttpRequest();
+    command.open("GET", relayUrl());
+    command.onreadystatechange = function () {
+        if (command.readyState === 4 && command.status === 200) {
+            response = JSON.parse(command.responseText);
+            relayShowChanges (response);
+        }
+    }
+    command.send(null);
+}
+
+function relayReset () {
+   relayRefreshCountDown = 0;
+   relayLastHistory = new Array();
+   relayChanges();
+}
+
+function relayTriggerSet (value) {
+   relayTrigger = value;
+   document.getElementById ('triggerstate').innerHTML = value;
+}
+
+function relayTriggerAction () {
+   if (this.checked) {
+      relayTriggerSet ('armed');
+      Depth = document.getElementById ('depth').valueAsNumber;
+   } else {
+      relayTriggerSet ('none');
+      Depth = DepthMax;
+      relayLastTimestamp = 0; // Retrieve as much history as we can.
+   }
+   relayReset ();
+}
+
+window.onload = function() {
+
+   relayChanges();
+   setInterval (relayChanges, 500);
+
+   document.getElementById ('depth').value = Depth;
+   var trigger = document.getElementById ('trigger');
+   trigger.addEventListener('change', relayTriggerAction);
+   trigger.checked = false;
+};
+</script>
+<head>
+   <title>Changes</title>
+</head>
+<body>
+   <nav>
+   <table>
+   <tr>
+   <td><a href="/picod/index.html">Control</a></td>
+   <td><span>Changes</span></td>
+   <td><a href="/picod/events.html">Events</a></td>
+   <td><a href="/picod/config.html">Config</a></td>
+   <td><a href="/picod/capture.html">Capture</a></td>
+   </tr>
+   </table>
+   </nav>
+   <main>
+   <article>
+   <div class="housetitle"><table> <tr><td width="50%">
+      Sampling period: <input type="number" size="4" value="100" id="period">
+      </td><td width="50%">
+      <input type="checkbox" id="trigger" name="trigger">
+      <label for="trigger">Trigger</label>
+      then record <input type="number" size="4" id="depth"> samples.
+      (<em id="triggerstate">none</em>)
+   </td></tr></table></div>
+   <table id="pointlist" class="housewidetable iolist" border="0">
+      <tr>
+         <th width="10%">NAME</th>
+         <th width="90%">DATA</th>
+      </tr>
+   </table>
+   </article>
+   </main>
+</body>
+</html>
+

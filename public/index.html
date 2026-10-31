@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel=stylesheet type="text/css" href="/house.css" title="House">
+<script>
+
+var LatestStatus = 0;
+
+function relayShowStatus (response) {
+
+    if (response.latest) LatestStatus = response.latest;
+
+    var title = response.host+' - Picod';
+    document.getElementsByTagName ('title')[0].innerHTML = title;
+
+    var points = response.control.status;
+    for (const [key, value] of Object.entries(points)) {
+        var state = document.getElementById ('state-'+key);
+        var mode = document.getElementById ('mode-'+key);
+        var button = document.getElementById ('button-'+key);
+        button.disabled = (value.mode != 'output');
+        mode.innerHTML = value.mode;
+        if (value.state == 'on') {
+            state.innerHTML = 'ON';
+            button.innerHTML = 'OFF';
+            button.controlState = 'off';
+        } else if (value.state == 'off') {
+            state.innerHTML = 'OFF';
+            button.innerHTML = 'ON';
+            button.controlState = 'on';
+        } else {
+            state.innerHTML = value.state;
+            button.innerHTML = 'ON';
+            button.disabled = true;
+        }
+    }
+}
+
+function relayStatus () {
+    var url = "/picod/status";
+    if (LatestStatus) url += "?known=" + LatestStatus;
+
+    var command = new XMLHttpRequest();
+    command.open("GET", url);
+    command.onreadystatechange = function () {
+        if (command.readyState === 4 && command.status === 200) {
+            relayShowStatus (JSON.parse(command.responseText));
+        }
+    }
+    command.send(null);
+}
+
+function controlClick () {
+    var point = this.controlName;
+    var state = this.controlState;
+    var command = new XMLHttpRequest();
+    command.open("GET", "/picod/set?point="+point+"&state="+state);
+    command.onreadystatechange = function () {
+        if (command.readyState === 4 && command.status === 200) {
+            relayShowStatus (JSON.parse(command.responseText));
+        }
+    }
+    command.send(null);
+}
+
+window.onload = function() {
+
+   function relayShowConfig (response) {
+      var iolist = document.getElementsByClassName ('iolist')[0];
+      var points = response.picod.points;
+      for (var i = 0; i < points.length; i++) {
+           var point = points[i];
+           var outer = document.createElement("tr");
+
+           var inner = document.createElement("td");
+           var label = document.createElement("span");
+           label.innerHTML = point.name;
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           label = document.createElement("span");
+           label.innerHTML = '(wait)';
+           label.id = 'mode-'+point.name;
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           label = document.createElement("span");
+           label.innerHTML = '(wait)';
+           label.id = 'state-'+point.name;
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           var button = document.createElement("button");
+           button.innerHTML = '(wait)';
+           button.disabled = true;
+           button.id = 'button-'+point.name;
+           button.onclick = controlClick;
+           button.controlName = point.name;
+           button.controlOn = point.on;
+           inner.appendChild(button);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           label = document.createElement("span");
+           if (point.connection)
+               label.innerHTML = point.connection;
+           else
+               label.innerHTML = '';
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           label = document.createElement("span");
+           if (point.gear)
+               label.innerHTML = point.gear;
+           else
+               label.innerHTML = '';
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           label = document.createElement("span");
+           if (point.description)
+               label.innerHTML = point.description;
+           else
+               label.innerHTML = '';
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           iolist.appendChild(outer);
+       }
+   }
+
+   function relayConfig () {
+       var command = new XMLHttpRequest();
+       command.open("GET", "/picod/config");
+       command.onreadystatechange = function () {
+           if (command.readyState === 4 && command.status === 200) {
+               relayShowConfig (JSON.parse(command.responseText));
+               relayStatus();
+               setInterval (relayStatus, 1000);
+           }
+       }
+       command.send(null);
+   }
+   relayConfig();
+};
+</script>
+<head>
+   <title>Picod</title>
+</head>
+<body>
+   <nav>
+   <table>
+   <tr>
+   <td><span>Control</span></td>
+   <td><a href="/picod/changes.html">Changes</a></td>
+   <td><a href="/picod/events.html">Events</a></td>
+   <td><a href="/picod/config.html">Config</a></td>
+   <td><a href="/picod/capture.html">Capture</a></td>
+   </tr>
+   </table>
+   </nav>
+   <main>
+   <article>
+   <table class="housewidetable iolist" border="0">
+      <tr>
+         <th width="10%">NAME</th>
+         <th width="5%">MODE</th>
+         <th width="10%">STATE</th>
+         <th width="10%">CONTROL</th>
+         <th width="10%">CONNECTION</th>
+         <th width="10%">GEAR</th>
+         <th width="45%">DESCRIPTION</th>
+      </tr>
+   </table>
+   </article>
+   </main>
+</body>
+</html>
+

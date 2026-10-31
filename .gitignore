@@ -53,3 +53,9 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# House naming conventions
+build
+donotcommit
+housepicod
+

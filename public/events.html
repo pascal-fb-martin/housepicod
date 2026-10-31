@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel=stylesheet type="text/css" href="/house.css" title="House">
+<script src="/events.js"></script>
+<script>
+window.onload = function() {
+   eventStart('/picod');
+}
+</script>
+<head>
+   <title></title>
+</head>
+<body>
+   <nav>
+   <table>
+   <tr>
+   <td><a href="/picod/index.html">Control</a></td>
+   <td><a href="/picod/changes.html">Changes</a></td>
+   <td><span>Events</span></td>
+   <td><a href="/picod/config.html">Config</a></td>
+   <td><a href="/picod/capture.html">Capture</a></td>
+   </tr>
+   </table>
+   </nav>
+   <main>
+   <article>
+   <table class="housewidetable eventlist" border="0">
+      <tr>
+         <th width="15%">TIME</th>
+         <th width="10%">CATEGORY</th>
+         <th width="15%">NAME</th>
+         <th width="15%">ACTION</th>
+         <th width="45%">DESCRIPTION</th>
+      </tr>
+   </table>
+   </article>
+   </main>
+</body>
+</html>
+

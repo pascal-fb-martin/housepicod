@@ -1,0 +1,20 @@
+[Unit]
+Description=the house Pico GPIO control web service
+After=network-online.target houseportal.service
+StartLimitIntervalSec=500
+StartLimitBurst=5
+
+[Service]
+User=house
+Restart=on-failure
+RestartSec=50s
+Environment="HTTPOPTS=" "HOUSEOPTS=" "OTHEROPTS=" "OPTS="
+EnvironmentFile=-/etc/default/housegeneric
+EnvironmentFile=-/etc/default/housepicod
+EnvironmentFile=-/etc/sysconfig/housegeneric
+EnvironmentFile=-/etc/sysconfig/housepicod
+ExecStart=/usr/local/bin/housepicod $HTTPOPTS $HOUSEOPTS $OTHEROPTS $OPTS
+
+[Install]
+WantedBy=multi-user.target
+

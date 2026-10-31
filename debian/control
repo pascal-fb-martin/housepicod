@@ -1,0 +1,17 @@
+Source: housepicod
+Version: 1.0
+Section: Web servers
+Maintainer: Pascal Martin <pascal.fb.martin@gmail.com>
+Priority: optional
+Homepage: https://github.com/pascal-fb-martin/housepicod
+Standard-Version: 4.7.0
+Package: housepicod
+Architecture: {{arch}}
+Depends: houseportal (>= 2.9),libpicod
+Description: A House service to control and read GPIO pins on a RPi Pico
+ HousePicod is part of the House suite of web services.
+ .
+ HousePicod allow remote services to control and read the GPIO pins of
+ Raspberry Pi Pico boards running the picod firmware. This service can
+ run on any Linux machine that has USB ports.
+

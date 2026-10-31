@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel=stylesheet type="text/css" href="/house.css" title="House">
+<script>
+
+var countIoShown = 0;
+
+function saveConfig () {
+
+    var form = document.forms;
+    var newconfig = new Object();
+    newconfig.picod = new Object();
+    newconfig.picod.iochip = 0; // For now..
+    newconfig.picod.points = new Array();
+
+    for (var i = 0; i < countIoShown; ++i) {
+
+        var prefix = 'gpio_'+i+'_';
+        var point = new Object();
+        point.name = form.iolistform[prefix+'name'].value;
+        point.uid = form.iolistform[prefix+'uid'].value;
+        point.gpio = parseInt(form.iolistform[prefix+'gpio'].value);
+        point.mode = form.iolistform[prefix+'mode'].value;
+        var value = form.iolistform[prefix+'level'].value;
+        if (value === 'HIGH')
+            point.on = 1;
+        else
+            point.on = 0;
+        value = form.iolistform[prefix+'pulse'].value;
+        if (value) value = parseInt (value);
+        if (value) point.pulse = value;
+        point.connection = form.iolistform[prefix+'connect'].value;
+        point.gear = form.iolistform[prefix+'gear'].value;
+        point.description = form.iolistform[prefix+'desc'].value;
+        newconfig.picod.points[i] = point;
+    }
+
+    var command = new XMLHttpRequest();
+    command.open("POST", "/picod/config");
+    command.setRequestHeader('Content-Type', 'application/json');
+    command.onreadystatechange = function () {
+        if (command.readyState === 4) {
+            if (command.status !== 200) {
+                window.alert ('Operation failed (error '+command.status+')!');
+            } else {
+                relayShowConfig (JSON.parse(command.responseText));
+            }
+        }
+    }
+    command.send(JSON.stringify(newconfig));
+}
+
+function wipeGpio () {
+
+    var iolist = document.getElementsByClassName ('iolist')[0];
+    for (var i = iolist.rows.length - 1; i > 0; i--) {
+        iolist.deleteRow(i);
+    }
+}
+
+function showGpio (name, uid, gpio, mode, on, connection, gear, description, pulse) {
+
+    var iolist = document.getElementsByClassName ('iolist')[0];
+    var outer = iolist.insertRow();
+
+    var prefix = 'gpio_'+countIoShown+'_';
+    var inner = document.createElement("td");
+    var entry = document.createElement("input");
+    entry.type = 'text';
+    entry.name = prefix+'name';
+    entry.value = name;
+    entry.placeholder = 'Name';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement("input");
+    entry.type = 'text';
+    entry.name = prefix+'uid';
+    entry.value = uid;
+    entry.placeholder = 'Pico UID';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement("input");
+    entry.type = 'number';
+    entry.name = prefix+'gpio';
+    entry.min = 1;
+    entry.max = 99;
+    entry.value = gpio;
+    entry.placeholder = 'GPIO';
+    entry.inputmode = 'numeric';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement ('select');
+    entry.name = prefix+'mode';
+    var opt = document.createElement ('option');
+    opt.value = 'output';
+    opt.innerHTML = 'Output';
+    if (!mode) opt.selected = true;
+    else if (mode === 'output') opt.selected = true;
+    entry.appendChild(opt);
+    opt = document.createElement ('option');
+    opt.value = 'input';
+    opt.innerHTML = 'Input';
+    if (mode === 'input') opt.selected = true;
+    entry.appendChild(opt);
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    var levelselect = document.createElement("select");
+    levelselect.name = prefix+'level';
+    var levelhigh = document.createElement("option");
+    levelhigh.value = 'HIGH';
+    levelhigh.innerHTML = 'Active High';
+    levelselect.appendChild(levelhigh);
+    levellow = document.createElement("option");
+    levellow.value = 'LOW';
+    levellow.innerHTML = 'Active Low';
+    levelselect.appendChild(levellow);
+    if (on)
+       levelhigh.selected = true;
+    else
+       levellow.selected = true;
+    inner.appendChild(levelselect);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement("input");
+    entry.type = 'number';
+    entry.name = prefix+'pulse';
+    entry.min = 0;
+    entry.max = 9999;
+    entry.value = pulse?pulse:0;
+    entry.placeholder = 'ms';
+    entry.inputmode = 'numeric';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement("input");
+    entry.type = 'text';
+    entry.name = prefix+'connect';
+    entry.placeholder = 'Name';
+    if (connection)
+        entry.value = connection;
+    else
+        entry.value = '';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement("input");
+    entry.type = 'text';
+    entry.name = prefix+'gear';
+    entry.placeholder = 'Name';
+    if (gear)
+        entry.value = gear;
+    else
+        entry.value = '';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    inner = document.createElement("td");
+    entry = document.createElement("input");
+    entry.type = 'text';
+    entry.name = prefix+'desc';
+    entry.placeholder = 'Name';
+    if (description)
+        entry.value = description;
+    else
+        entry.value = '';
+    inner.appendChild(entry);
+    outer.appendChild(inner);
+
+    countIoShown += 1;
+}
+
+function addConfig () {
+    showGpio ('', '', '', 'output', '', '', '', '', 0);
+}
+
+function relayShowConfig (response) {
+   wipeGpio ();
+   var points = response.picod.points;
+   for (var i = 0; i < points.length; i++) {
+      var point = points[i];
+      if (!point.description) point.description = '';
+      showGpio (point.name, point.uid, point.gpio, point.mode, point.on, point.connection, point.gear, point.description, point.pulse);
+   }
+}
+
+function relayConfig () {
+    var command = new XMLHttpRequest();
+    command.open("GET", "/picod/config");
+    command.onreadystatechange = function () {
+        if (command.readyState === 4 && command.status === 200) {
+            relayShowConfig (JSON.parse(command.responseText));
+        }
+    }
+    command.send(null);
+}
+
+window.onload = function() {
+   relayConfig();
+};
+</script>
+<head>
+   <title>Control</title>
+</head>
+<body>
+   <nav>
+   <table>
+   <tr>
+   <td><a href="/picod/index.html">Control</a></td>
+   <td><a href="/picod/changes.html">Changes</a></td>
+   <td><a href="/picod/events.html">Events</a></td>
+   <td><span>Config</span></td>
+   <td><a href="/picod/capture.html">Capture</a></td>
+   </tr>
+   </table>
+   </nav>
+   <main>
+   <article>
+   <form name="iolistform">
+   <table class="houselargetable iolist">
+      <tr>
+         <th>NAME</th>
+         <th>PICO</th>
+         <th>GPIO</th>
+         <th>MODE</th>
+         <th>LEVEL</th>
+         <th>PULSE</th>
+         <th>CONNECTION</th>
+         <th>GEAR</th>
+         <th>DESCRIPTION</th>
+      </tr>
+   </table>
+   </form>
+   <div class="housebuttons">
+      <button class="actionbutton" onclick="addConfig()">Add</button>
+      <button class="actionbutton" onclick="saveConfig()">Save</button>
+   </div>
+   </article>
+   </main>
+</body>
+</html>
+
