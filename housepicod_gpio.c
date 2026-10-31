@@ -195,14 +195,21 @@ static void housepicod_gpio_tap (const char *action, const char *device,
 
     if (!housecapture_active (PicodCapture)) return;
 
+    const char *sep = strrchr (device, '/');
+    if (sep) device = sep + 1;
+
+    if (!data) {
+        housecapture_record (PicodCapture, device, action, 0);
+        return;
+    }
+
     char buffer[1024];
     int cursor = 0;
+    buffer[0] = 0; // If there is no data.
     while (length-- > 0) {
         cursor += snprintf (buffer+cursor, sizeof(buffer)-cursor,
                             "%02x", *data++);
     }
-    const char *sep = strrchr (device, '/');
-    if (sep) device = sep + 1;
     housecapture_record (PicodCapture, device, action, "%s", buffer);
 }
 
@@ -842,6 +849,6 @@ const char *housepicod_gpio_initialize (int argc, const char **argv) {
     echttp_fastscan (housepicod_gpio_scanner, 50000); // To handle pulses
 
     if (houseconfig_active()) return housepicod_gpio_refresh ();
-    return picod_initialize (argc, argv);;
+    return 0;
 }
 
