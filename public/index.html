@@ -105,6 +105,15 @@ window.onload = function() {
 
            inner = document.createElement("td");
            label = document.createElement("span");
+           if (point.gpio)
+               label.innerHTML = point.gpio;
+           else
+               label.innerHTML = '';
+           inner.appendChild(label);
+           outer.appendChild(inner);
+
+           inner = document.createElement("td");
+           label = document.createElement("span");
            if (point.connection)
                label.innerHTML = point.connection;
            else
@@ -168,13 +177,14 @@ window.onload = function() {
    <article>
    <table class="housewidetable iolist" border="0">
       <tr>
-         <th width="10%">NAME</th>
-         <th width="5%">MODE</th>
-         <th width="10%">STATE</th>
-         <th width="10%">CONTROL</th>
-         <th width="10%">CONNECTION</th>
+         <th width="15%">NAME</th>
+         <th width="7%">MODE</th>
+         <th width="7%">STATE</th>
+         <th width="7%">CONTROL</th>
+         <th width="7%">GPIO</th>
+         <th width="7%">CONNECTION</th>
          <th width="10%">GEAR</th>
-         <th width="45%">DESCRIPTION</th>
+         <th width="40%">DESCRIPTION</th>
       </tr>
    </table>
    </article>
