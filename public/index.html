@@ -6,7 +6,7 @@
 
 var LatestStatus = 0;
 
-function relayShowStatus (response) {
+function picodShowStatus (response) {
 
     if (response.latest) LatestStatus = response.latest;
 
@@ -36,7 +36,7 @@ function relayShowStatus (response) {
     }
 }
 
-function relayStatus () {
+function picodStatus () {
     var url = "/picod/status";
     if (LatestStatus) url += "?known=" + LatestStatus;
 
@@ -44,7 +44,7 @@ function relayStatus () {
     command.open("GET", url);
     command.onreadystatechange = function () {
         if (command.readyState === 4 && command.status === 200) {
-            relayShowStatus (JSON.parse(command.responseText));
+            picodShowStatus (JSON.parse(command.responseText));
         }
     }
     command.send(null);
@@ -57,7 +57,7 @@ function controlClick () {
     command.open("GET", "/picod/set?point="+point+"&state="+state);
     command.onreadystatechange = function () {
         if (command.readyState === 4 && command.status === 200) {
-            relayShowStatus (JSON.parse(command.responseText));
+            picodShowStatus (JSON.parse(command.responseText));
         }
     }
     command.send(null);
@@ -65,7 +65,7 @@ function controlClick () {
 
 window.onload = function() {
 
-   function relayShowConfig (response) {
+   function picodShowConfig (response) {
       var iolist = document.getElementsByClassName ('iolist')[0];
       var points = response.picod.points;
       for (var i = 0; i < points.length; i++) {
@@ -143,19 +143,19 @@ window.onload = function() {
        }
    }
 
-   function relayConfig () {
+   function picodConfig () {
        var command = new XMLHttpRequest();
        command.open("GET", "/picod/config");
        command.onreadystatechange = function () {
            if (command.readyState === 4 && command.status === 200) {
-               relayShowConfig (JSON.parse(command.responseText));
-               relayStatus();
-               setInterval (relayStatus, 1000);
+               picodShowConfig (JSON.parse(command.responseText));
+               picodStatus();
+               setInterval (picodStatus, 1000);
            }
        }
        command.send(null);
    }
-   relayConfig();
+   picodConfig();
 };
 </script>
 <head>
@@ -166,6 +166,7 @@ window.onload = function() {
    <table>
    <tr>
    <td><span>Control</span></td>
+   <td><a href="/picod/devices.html">Devices</a></td>
    <td><a href="/picod/changes.html">Changes</a></td>
    <td><a href="/picod/events.html">Events</a></td>
    <td><a href="/picod/config.html">Config</a></td>

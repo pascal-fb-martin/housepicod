@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel=stylesheet type="text/css" href="/house.css" title="House">
+<script>
+
+const dateOption = {year: 'numeric',
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: 'numeric',
+                    second: 'numeric',
+                    hour12: false};
+
+var LatestStatus = 0;
+
+function picodShow (response) {
+
+    if (!LatestStatus) {
+        var title = response.host+' - Picod Devices';
+        document.getElementsByTagName ('title')[0].innerHTML = title;
+    }
+    if (response.latest) LatestStatus = response.latest;
+
+    var table = document.getElementsByClassName ('devicelist')[0];
+    for (var i = table.rows.length - 1; i > 0; i--) {
+        table.deleteRow(i);
+    }
+
+    var devices = response.control.devices;
+    for (var i = devices.length - 1; i >= 0; i--) {
+        var row = table.insertRow();
+        var dev = devices[i];
+
+        var column = document.createElement("td");
+        column.innerHTML = dev.uid;
+        row.appendChild(column);
+
+        column = document.createElement("td");
+        if (dev.version) {
+            column.innerHTML = ("0000000" + dev.version.toString(16)).substr(-8);
+        } else {
+            column.innerHTML = '';
+        }
+        row.appendChild(column);
+
+        column = document.createElement("td");
+        if (dev.detected) {
+            var detected = new Date (dev.detected * 1000)
+            column.innerHTML = detected.toLocaleString('en-US', dateOption);
+        } else {
+            column.innerHTML = '';
+        }
+        row.appendChild(column);
+
+        column = document.createElement("td");
+        column.innerHTML = dev.tty;
+        row.appendChild(column);
+    }
+}
+
+function picodStatus () {
+    var url = "/picod/status";
+    if (LatestStatus) url += "?known=" + LatestStatus;
+
+    var command = new XMLHttpRequest();
+    command.open("GET", url);
+    command.onreadystatechange = function () {
+        if (command.readyState === 4 && command.status === 200) {
+            picodShow (JSON.parse(command.responseText));
+        }
+    }
+    command.send(null);
+}
+
+window.onload = function() {
+
+   setInterval (picodStatus, 5000);
+   picodStatus ();
+};
+</script>
+<head>
+   <title>Picod Devices</title>
+</head>
+<body>
+   <nav>
+   <table>
+   <tr>
+   <td><a href="/picod/index.html">Control</a></td>
+   <td><span>Devices</span></td>
+   <td><a href="/picod/changes.html">Changes</a></td>
+   <td><a href="/picod/events.html">Events</a></td>
+   <td><a href="/picod/config.html">Config</a></td>
+   <td><a href="/picod/capture.html">Capture</a></td>
+   </tr>
+   </table>
+   </nav>
+   <main>
+   <article>
+   <table class="housewidetable devicelist" border="0">
+      <tr>
+         <th width="25%">UID</th>
+         <th width="20%">VERSION</th>
+         <th width="20%">DETECTED</th>
+         <th width="35%">TTY</th>
+      </tr>
+   </table>
+   </article>
+   </main>
+</body>
+</html>
+

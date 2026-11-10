@@ -54,7 +54,8 @@
  *
  * void housepicod_gpio_status (ParserContext context, int root);
  *
- *    Populate the context with the list of known points and their values.
+ *    Populate the context with the list of known RPi Pico devices,
+ *    points and their values.
  *
  * void housepicod_gpio_fast (int period);
  *
@@ -132,9 +133,14 @@ struct PicoMap {
     int uidsignature; // Accelerates search.
     int index;        // Self reference.
 
+    int version;
+    const char *tty;
+
     char inuse;       // Referenced in the configuration.
     char detected;    // Currently attached to this computer.
     char configured;  // The GPIO have already been set on the Pico
+
+    time_t appeared; // When was it detected.
 
     int points; // First point in the list.
 
@@ -258,6 +264,7 @@ static struct PicoMap *housepicod_gpio_add_pico (const uint8_t *uid) {
 
     dev->inuse = 1;
     dev->detected = 0;
+    dev->appeared = 0;
     dev->configured = 0;
     memcpy (dev->uid, uid, PICOUIDSIZE);
     dev->uidsignature = picod_signature (uid, PICOUIDSIZE);;
@@ -424,6 +431,14 @@ static void housepicod_gpio_configure_pico (struct PicoMap *dev)  {
     dev->configured = 1;
 }
 
+static void housepicod_gpio_detected (struct PicoMap *dev, int index) {
+
+    dev->version = picod_version (index);
+    dev->tty = picod_tty (index);
+    if (!dev->appeared) dev->appeared = time (0);
+    dev->detected = 1;
+}
+
 static void housepicod_gpio_refresh_pico (void) {
 
     // Update the list of detected Pico devices.
@@ -438,7 +453,7 @@ static void housepicod_gpio_refresh_pico (void) {
         struct PicoMap *dev = housepicod_gpio_find_pico (uid, 0);
         if (!dev) continue; // Ignore devices never present in a configuration
 
-        dev->detected = 1;
+        housepicod_gpio_detected (dev, count);
     }
 
     // Prune out the Pico devices that are neither referenced in
@@ -512,7 +527,8 @@ static void housepicod_gpio_detect (void) {
                 // periodically..
                 if (dev->inuse && (!dev->configured))
                     housepicod_gpio_configure_pico (dev);
-                dev->detected = 1;
+
+                housepicod_gpio_detected (dev, count);
             }
         }
 
@@ -526,7 +542,10 @@ static void housepicod_gpio_detect (void) {
 
     for (i = 0; i < PicoDevicesCount; ++i) {
         dev = PicoDevices[i];
-        if (dev && !dev->detected) dev->configured = 0;
+        if (dev && !dev->detected) {
+            dev->configured = 0;
+            dev->appeared = 0;
+        }
     }
 }
 
@@ -784,6 +803,8 @@ int housepicod_gpio_set (int point, int state,
 
 void housepicod_gpio_status (ParserContext context, int root) {
 
+    int points = echttp_json_add_object (context, root, "status");
+
     int i;
     for (i = 0; i < GpioCount; ++i) {
        if (!housepicod_gpio_pico_present (Gpios[i].pico))
@@ -793,7 +814,7 @@ void housepicod_gpio_status (ParserContext context, int root) {
        const char *status = Gpios[i].state?"on":"off";
        const char *commanded = Gpios[i].commanded?"on":"off";
 
-       int point = echttp_json_add_object (context, root, Gpios[i].name);
+       int point = echttp_json_add_object (context, points, Gpios[i].name);
        if (mode) echttp_json_add_string (context, point, "mode", mode);
        echttp_json_add_string (context, point, "state", status);
        if ((Gpios[i].mode == HOUSE_GPIO_MODE_OUTPUT) &&
@@ -805,6 +826,24 @@ void housepicod_gpio_status (ParserContext context, int root) {
        }
        if (Gpios[i].gear && (Gpios[i].gear[0] != 0))
            echttp_json_add_string (context, point, "gear", Gpios[i].gear);
+    }
+
+    int devices = echttp_json_add_array (context, root, "devices");
+
+    struct PicoMap *dev;
+    for (i = 0; i < PicoDevicesCount; ++i) {
+        dev = PicoDevices[i];
+        if (!dev || !dev->inuse) continue;
+        int pico = echttp_json_add_object (context, devices, 0);
+        char uid[20];
+        snprintf (uid, sizeof(uid), "%02x%02x%02x%02x%02x%02x%02x%02x",
+                  dev->uid[0], dev->uid[1], dev->uid[2], dev->uid[3],
+                  dev->uid[4], dev->uid[5], dev->uid[6], dev->uid[7]);
+        echttp_json_add_string (context, pico, "uid", uid);
+        echttp_json_add_integer (context, pico, "version", dev->version);
+        echttp_json_add_integer (context, pico, "detected", (long long)dev->appeared);
+        echttp_json_add_integer (context, pico, "configured", (long long)dev->configured);
+        echttp_json_add_string (context, pico, "tty", dev->tty);
     }
 }
 

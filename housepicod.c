@@ -65,8 +65,7 @@ static const char *pico_status (const char *method, const char *uri,
 
     echttp_json_add_bool (context, top, "history", 1);
 
-    int container = echttp_json_add_object (context, top, "status");
-    housepicod_gpio_status (context, container);
+    housepicod_gpio_status (context, top);
 
     const char *error =
         echttp_json_export (context, JsonBuffer, sizeof(JsonBuffer));
