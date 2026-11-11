@@ -1,6 +1,7 @@
 #!/bin/sh
 
 HOUSEAPP=housepicod
+HOUSEGROUP=dialout
 
 case $1 in
     configure|abort-upgrade|abort-deconfigure|abort-remove)
