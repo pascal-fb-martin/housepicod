@@ -240,7 +240,6 @@ static void pico_protect (const char *method, const char *uri) {
 int main (int argc, const char **argv) {
 
     const char *error;
-    char defaultoption[266];
 
     // These strange statements are to make sure that fds 0 to 2 are
     // reserved, since this application might output some errors.
@@ -261,8 +260,6 @@ int main (int argc, const char **argv) {
     }
     housediscover_initialize (argc, argv);
     houselog_initialize ("picod", argc, argv);
-    snprintf (defaultoption, sizeof(defaultoption), "-group=%s", HostName);
-    housedepositor_default (defaultoption);
     housedepositor_initialize (argc, argv);
 
     error = houseconfig_initialize
