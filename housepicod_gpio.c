@@ -269,6 +269,7 @@ static struct PicoMap *housepicod_gpio_add_pico (const uint8_t *uid) {
     memcpy (dev->uid, uid, PICOUIDSIZE);
     dev->uidsignature = picod_signature (uid, PICOUIDSIZE);;
     dev->tty = 0;
+    dev->version = 0;
     dev->index = empty;
     dev->points = -1;
     dev->pincount = 0;
@@ -469,6 +470,7 @@ static void housepicod_gpio_unplugged (struct PicoMap *dev) {
     }
     if (dev->tty) free (dev->tty);
     dev->tty = 0;
+    dev->version = 0;
     dev->configured = 0;
 
     if (!dev->inuse) {
