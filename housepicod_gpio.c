@@ -439,8 +439,8 @@ static void housepicod_gpio_configure_pico (struct PicoMap *dev)  {
     // No poll is needed: just wait for the initial read response
     // and subsequent alerts.
 
-    houselog_event ("PICO", housepicod_gpio_uidascii (dev),
-                    "CONFIGURED", "TTY %s", dev->tty);
+    houselog_event ("PICO", housepicod_gpio_uidascii (dev), "CONFIGURED",
+                    "VERSION %08x TTY %s", dev->version, dev->tty);
     dev->configured = 1;
 }
 
@@ -453,8 +453,9 @@ static void housepicod_gpio_detected (struct PicoMap *dev, int index) {
         dev->appeared = time (0);
         if (dev->tty) free (dev->tty);
         dev->tty = strdup (tty);
-        houselog_event ("PICO", housepicod_gpio_uidascii (dev),
-                        "DETECTED", "TTY %s", dev->tty);
+        houselog_event ("PICO", housepicod_gpio_uidascii (dev), "DETECTED",
+                        "VERSION %08x TTY %s", dev->version, dev->tty);
+        housestate_changed (LiveGpioState);
     } else {
         if (!dev->tty) dev->tty = strdup (tty); // To be safe.
     }
@@ -464,9 +465,10 @@ static void housepicod_gpio_detected (struct PicoMap *dev, int index) {
 static void housepicod_gpio_unplugged (struct PicoMap *dev) {
 
     if (dev->appeared) {
-        houselog_event ("PICO", housepicod_gpio_uidascii (dev),
-                        "UNPLUGGED", "TTY %s", dev->tty);
+        houselog_event ("PICO", housepicod_gpio_uidascii (dev), "UNPLUGGED",
+                        "VERSION %08x TTY %s", dev->version, dev->tty);
         dev->appeared = 0;
+        housestate_changed (LiveGpioState);
     }
     if (dev->tty) free (dev->tty);
     dev->tty = 0;

@@ -5,13 +5,25 @@
 <script>
 
 var LatestStatus = 0;
+var KnownPoints = new Array();
 
 function picodShowStatus (response) {
 
+    if (!LatestStatus) {
+        var title = response.host+' - Picod Control';
+        document.getElementsByTagName ('title')[0].innerHTML = title;
+    }
     if (response.latest) LatestStatus = response.latest;
 
-    var title = response.host+' - Picod';
-    document.getElementsByTagName ('title')[0].innerHTML = title;
+    var table = document.getElementsByClassName ('iolist')[0];
+    for (var i = 0; i < KnownPoints.length; ++i) {
+        const key = KnownPoints[i];
+        var state = document.getElementById ('state-'+key);
+        var button = document.getElementById ('button-'+key);
+        state.innerHTML = '(wait)';
+        button.innerHTML = '(wait)';
+        button.disabled = true;
+    }
 
     var points = response.control.status;
     for (const [key, value] of Object.entries(points)) {
@@ -70,6 +82,7 @@ window.onload = function() {
       var points = response.picod.points;
       for (var i = 0; i < points.length; i++) {
            var point = points[i];
+           KnownPoints.push (point.name);
            var outer = document.createElement("tr");
 
            var inner = document.createElement("td");
@@ -165,7 +178,7 @@ window.onload = function() {
    <nav>
    <table>
    <tr>
-   <td><span>Control</span></td>
+   <td><span>Picod Control</span></td>
    <td><a href="/picod/devices.html">Devices</a></td>
    <td><a href="/picod/changes.html">Changes</a></td>
    <td><a href="/picod/events.html">Events</a></td>
