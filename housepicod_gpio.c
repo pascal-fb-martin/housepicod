@@ -134,7 +134,7 @@ struct PicoMap {
     int index;        // Self reference.
 
     int version;
-    const char *tty;
+    char *tty;
 
     char inuse;       // Referenced in the configuration.
     char detected;    // Currently attached to this computer.
@@ -268,6 +268,7 @@ static struct PicoMap *housepicod_gpio_add_pico (const uint8_t *uid) {
     dev->configured = 0;
     memcpy (dev->uid, uid, PICOUIDSIZE);
     dev->uidsignature = picod_signature (uid, PICOUIDSIZE);;
+    dev->tty = 0;
     dev->index = empty;
     dev->points = -1;
     dev->pincount = 0;
@@ -396,6 +397,15 @@ static void housepicod_gpio_submit (int index) {
     }
 }
 
+static const char *housepicod_gpio_uidascii (struct PicoMap *dev) {
+
+    static char uid[20];
+    snprintf (uid, sizeof(uid), "%02x%02x%02x%02x%02x%02x%02x%02x",
+              dev->uid[0], dev->uid[1], dev->uid[2], dev->uid[3],
+              dev->uid[4], dev->uid[5], dev->uid[6], dev->uid[7]);
+     return uid;
+}
+
 static void housepicod_gpio_configure_pico (struct PicoMap *dev)  {
 
     dev->configured = 0;
@@ -428,15 +438,43 @@ static void housepicod_gpio_configure_pico (struct PicoMap *dev)  {
     // No poll is needed: just wait for the initial read response
     // and subsequent alerts.
 
+    houselog_event ("PICO", housepicod_gpio_uidascii (dev),
+                    "CONFIGURED", "TTY %s", dev->tty);
     dev->configured = 1;
 }
 
 static void housepicod_gpio_detected (struct PicoMap *dev, int index) {
 
+    const char *tty = picod_tty (index);
     dev->version = picod_version (index);
-    dev->tty = picod_tty (index);
-    if (!dev->appeared) dev->appeared = time (0);
+
+    if (!dev->appeared) {
+        dev->appeared = time (0);
+        if (dev->tty) free (dev->tty);
+        dev->tty = strdup (tty);
+        houselog_event ("PICO", housepicod_gpio_uidascii (dev),
+                        "DETECTED", "TTY %s", dev->tty);
+    } else {
+        if (!dev->tty) dev->tty = strdup (tty); // To be safe.
+    }
     dev->detected = 1;
+}
+
+static void housepicod_gpio_unplugged (struct PicoMap *dev) {
+
+    if (dev->appeared) {
+        houselog_event ("PICO", housepicod_gpio_uidascii (dev),
+                        "UNPLUGGED", "TTY %s", dev->tty);
+        dev->appeared = 0;
+    }
+    if (dev->tty) free (dev->tty);
+    dev->tty = 0;
+    dev->configured = 0;
+
+    if (!dev->inuse) {
+        PicoDevices[dev->index] = 0;
+        free (dev);
+    }
 }
 
 static void housepicod_gpio_refresh_pico (void) {
@@ -464,8 +502,7 @@ static void housepicod_gpio_refresh_pico (void) {
         struct PicoMap *dev = PicoDevices[i];
         if (!dev) continue;
         if (!dev->inuse && !dev->detected) {
-            PicoDevices[i] = 0;
-            free (dev);
+            housepicod_gpio_unplugged (dev);
             continue;
         }
         housepicod_gpio_configure_pico (dev);
@@ -521,14 +558,14 @@ static void housepicod_gpio_detect (void) {
         if (uid) {
             dev = housepicod_gpio_find_pico (uid, 0);
             if (dev) {
+                housepicod_gpio_detected (dev, count);
+
                 // Reconfigure the devices that have appeared and are
                 // referenced in the current configuration.
                 // There is no point in reconfiguring all Pico devices
                 // periodically..
                 if (dev->inuse && (!dev->configured))
                     housepicod_gpio_configure_pico (dev);
-
-                housepicod_gpio_detected (dev, count);
             }
         }
 
@@ -543,8 +580,7 @@ static void housepicod_gpio_detect (void) {
     for (i = 0; i < PicoDevicesCount; ++i) {
         dev = PicoDevices[i];
         if (dev && !dev->detected) {
-            dev->configured = 0;
-            dev->appeared = 0;
+            housepicod_gpio_unplugged (dev);
         }
     }
 }
@@ -835,11 +871,7 @@ void housepicod_gpio_status (ParserContext context, int root) {
         dev = PicoDevices[i];
         if (!dev || !dev->inuse) continue;
         int pico = echttp_json_add_object (context, devices, 0);
-        char uid[20];
-        snprintf (uid, sizeof(uid), "%02x%02x%02x%02x%02x%02x%02x%02x",
-                  dev->uid[0], dev->uid[1], dev->uid[2], dev->uid[3],
-                  dev->uid[4], dev->uid[5], dev->uid[6], dev->uid[7]);
-        echttp_json_add_string (context, pico, "uid", uid);
+        echttp_json_add_string (context, pico, "uid", housepicod_gpio_uidascii (dev));
         echttp_json_add_integer (context, pico, "version", dev->version);
         echttp_json_add_integer (context, pico, "detected", (long long)dev->appeared);
         echttp_json_add_integer (context, pico, "configured", (long long)dev->configured);
