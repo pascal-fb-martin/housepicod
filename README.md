@@ -4,7 +4,7 @@ A web server to control GPIO pins on connected RPi Pico devices.
 
 ## Overview
 
-This is a web server designed to provide access to GPIO pins on connected RPi Pico devices. This project depends on [libpicod](https://github.com/pascal-fb-martin/libpicod), [echttp](https://github.com/pascal-fb-martin/echttp) and [houseportal](https://github.com/pascal-fb-martin/houseportal).
+This is a web server designed to provide access to GPIO pins on connected RPi Pico devices. This project depends on [libpicod](https://github.com/pascal-fb-martin/libpicod), [echttp](https://github.com/pascal-fb-martin/echttp) and [houseportal](https://github.com/pascal-fb-martin/houseportal). The RPi Pico must be running the [picod](https://github.com/joan2937/picod) firmware.
 
 This application is a variant of [HouseRelay](https://github.com/pascal-fb-martin/housepicod) and intentionally presents a compatible web API.
 
@@ -18,6 +18,7 @@ This way RPi Pico boards may be installed at convenient points across the home, 
 
 ## Installation.
 
+* Purchase a RPi Pico board and install the [picod](https://github.com/joan2937/picod) firmware.
 * Install the OpenSSL development package(s).
 * Install [echttp](https://github.com/pascal-fb-martin/echttp).
 * Install [houseportal](https://github.com/pascal-fb-martin/houseportal).
